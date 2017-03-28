@@ -1,6 +1,4 @@
-'use strict';
-
-const filterResultArray = require('./includes/filterResultArray');
+import filterResultArray from './includes/filterResultArray';
 
 /**
  * A utility to get just the RowDataPackets in the results.
@@ -11,10 +9,8 @@ const filterResultArray = require('./includes/filterResultArray');
  * @param results
  * @returns {Array}
  */
-function getDataRowsFromResults(results) {
-  const rows = [];
+export default function getDataRowsFromResults(results: {[fieldName: string]: any}[]): {[fieldName: string]: any}[] {
+  const rows: {}[] = [];
   filterResultArray(results, rows);
   return rows;
 }
-
-module.exports = getDataRowsFromResults;

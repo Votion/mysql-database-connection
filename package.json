@@ -1,11 +1,14 @@
 {
   "name": "mysql-database-connection",
-  "version": "0.0.1",
+  "version": "0.2.0",
   "description": "A class to establish read and write MySQL connections",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "typings": "dist/index",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "test:lint": "eslint . --ext .js --cache"
+    "lint": "tslint --project tslint.json --format verbose|| true",
+    "build": "tsc",
+    "prepublish": "tsc"
   },
   "repository": {
     "type": "git",
@@ -26,11 +29,8 @@
     "mysql": "^2.11.1"
   },
   "devDependencies": {
-    "babel-eslint": "^7.1.0",
-    "eslint": "^3.9.1",
-    "eslint-config-airbnb": "^12.0.0",
-    "eslint-plugin-import": "^1.16.0",
-    "eslint-plugin-jsx-a11y": "^2.2.3",
-    "eslint-plugin-react": "^6.4.1"
+    "@types/node": "^7.0.8",
+    "tslint": "^4.5.1",
+    "typescript": "^2.2.1"
   }
 }

@@ -1,6 +1,4 @@
-'use strict';
-
-function filterResultArray(results, filterRows) {
+export default function filterResultArray(results: {[fieldName: string]: any}[], filterRows: {[fieldName: string]: any}[]) {
   results.forEach((row) => {
     if (row.constructor.name === 'RowDataPacket') {
       filterRows.push(row);
@@ -9,5 +7,3 @@ function filterResultArray(results, filterRows) {
     }
   });
 }
-
-module.exports = filterResultArray;

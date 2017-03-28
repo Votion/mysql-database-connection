@@ -1,16 +1,32 @@
-'use strict';
-
 /**
  * Manage a writing and reading from a MySQL (or MySQL compatible) database.
  *
  * Under the hood, this handles pooling of multiple connections for reading and writing.
  *
  */
-const mysqlDefault = require('mysql');
-const _ = require('lodash');
-const noop = require('./includes/noop');
+import * as mysqlDefault from 'mysql';
+import * as _ from 'lodash';
+import {IConnectionOption, IConnectionOptions} from './options';
 
-class MySqlDatabaseConnection {
+interface IInternalConnectionOption {
+  database?: string|null,
+  host: string|null,
+  user: string|null,
+  password: string|null,
+  port: number,
+}
+
+interface IInternalConnectionOptions {
+  database: string|null,
+  defaultConnection: IInternalConnectionOption,
+  writeConnections: IInternalConnectionOption[],
+  readConnections: IInternalConnectionOption[],
+}
+
+export default class MySqlDatabaseConnection {
+
+  pool: mysqlDefault.IPoolCluster;
+
   /**
    * @param {host: {string}, user: {string}, password: {string}, database: {string}, port: {number}}
    *   config
@@ -21,15 +37,15 @@ class MySqlDatabaseConnection {
    * If you leave any option out, it will look for an environment variable: DB_HOST, DB_USER,
    * DB_PASS, DB_NAME, DB_PORT.
    */
-  constructor(connectionOptions, poolingOptions, mysql) {
-    const poolClusterConfig = _.defaults(poolingOptions, {
+  constructor(connectionOptions: IConnectionOptions, poolingOptions?: mysqlDefault.IPoolClusterConfig, mysql?: mysqlDefault.IMySql) {
+    const poolClusterConfig = _.defaults(poolingOptions || {}, {
       canRetry: true,
       removeNodeErrorCount: 5,
       restoreNodeTimeout: 600000, // 10 minutes
       defaultSelector: 'RANDOM',
     });
 
-    const defaults = {
+    const defaults: IInternalConnectionOptions = {
       database: null,
 
       defaultConnection: {
@@ -44,29 +60,29 @@ class MySqlDatabaseConnection {
       readConnections: [],
     };
 
-    _.defaultsDeep(connectionOptions, defaults);
+    const conOpts = _.defaultsDeep<IConnectionOptions, IInternalConnectionOptions>(connectionOptions, defaults);
 
     // Default to the default connection if no write or read connection is provided
-    if (connectionOptions.writeConnections.length === 0) {
-      connectionOptions.writeConnections.push(connectionOptions.defaultConnection);
+    if (conOpts.writeConnections.length === 0) {
+      conOpts.writeConnections.push(conOpts.defaultConnection);
     }
 
-    if (connectionOptions.readConnections.length === 0) {
-      connectionOptions.readConnections.push(connectionOptions.defaultConnection);
+    if (conOpts.readConnections.length === 0) {
+      conOpts.readConnections.push(conOpts.defaultConnection);
     }
 
     this.pool = (mysql || mysqlDefault).createPoolCluster(poolClusterConfig);
 
     // Add the write connections
-    connectionOptions.writeConnections.forEach((connectionDef, index) => {
-      const conDef = _.defaults(connectionDef, connectionOptions.defaultConnection);
+    conOpts.writeConnections.forEach((connectionDef, index) => {
+      const conDef = _.defaults<IConnectionOption, mysqlDefault.IPoolConfig>(connectionDef, conOpts.defaultConnection);
       conDef.database = connectionOptions.database;
       this.pool.add(`WRITE${index}`, conDef);
     });
 
     // Add the read connections
-    connectionOptions.readConnections.forEach((connectionDef, index) => {
-      const conDef = _.defaults(connectionDef, connectionOptions.defaultConnection);
+    conOpts.readConnections.forEach((connectionDef, index) => {
+      const conDef = _.defaults<IConnectionOption, mysqlDefault.IPoolConfig>(connectionDef, conOpts.defaultConnection);
       conDef.database = connectionOptions.database;
       this.pool.add(`READ${index}`, conDef);
     });
@@ -115,11 +131,11 @@ class MySqlDatabaseConnection {
    * @param {{}} args - replacement values in the query
    * @return {Promise}
    */
-  readQuery(query, args) {
+  readQuery(query: string, args = {}): Promise<{[fieldName: string]: any}[]> {
     return new Promise((resolve, reject) => {
       this.getReadConnection()
-        .then((connection) => {
-          connection.query(query, args || {}, (err, results) => {
+        .then((connection: mysqlDefault.IConnection) => {
+          connection.query(query, args || {}, (err: Error|null, results) => {
             if (err) {
               reject(err);
             } else {
@@ -139,10 +155,10 @@ class MySqlDatabaseConnection {
    * @param {{}} args - replacement values in the query
    * @return {Promise}
    */
-  writeQuery(query, args) {
+  writeQuery(query: string, args = {}): Promise<{[fieldName: string]: any}[]> {
     return new Promise((resolve, reject) => {
       this.getWriteConnection()
-        .then((connection) => {
+        .then((connection: mysqlDefault.IConnection) => {
           connection.query(query, args || {}, (err, results) => {
             if (err) {
               reject(err);
@@ -161,9 +177,7 @@ class MySqlDatabaseConnection {
    * Destroy the connections
    * @param {function} done
    */
-  destroy(done) {
-    this.pool.end(done || noop);
+  destroy() {
+    this.pool.end();
   }
 }
-
-module.exports = MySqlDatabaseConnection;
